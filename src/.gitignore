@@ -2,6 +2,12 @@
 *.so
 *.efi
 *.img
+*.elf
+*.txt
+*.scr
+*.bin
 tools/
 .vscode/
 mnt/
+resources/fonts/node_modules/
+resources/shinonome-0.9.11-src/

@@ -16,7 +16,7 @@ OBJCOPY = objcopy
 
 FORMAT		= --target efi-app-x86_64
 
-OBJS 			= main.o
+OBJS 			= main.o util.o
 
 CFLAGS		= -I. -I$(GNUEFI)/inc -I$(GNUEFI)/inc/x86_64 -I$(GNUEFI)/inc/protocol -Wno-error=pragmas -mno-red-zone -mno-avx -fpic -g -O2 -Wall -Wextra -Werror -fshort-wchar -fno-strict-aliasing -ffreestanding -fno-stack-protector -fno-stack-check -fno-stack-check -fno-merge-all-constants -DCONFIG_x86_64 -DGNU_EFI_USE_MS_ABI -maccumulate-outgoing-args --std=c11 -D__KERNEL__ -I/usr/src/sys/build/include
 LDFLAGS		= -nostdlib --warn-common --no-undefined --fatal-warnings --build-id=sha1 -shared -Bsymbolic -L$(GNUEFI)/lib -L$(LIBDIR) $(LIBDIR)/crt0-efi-x86_64.o 
@@ -30,7 +30,7 @@ all : $(TARGET)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 loader.so : $(OBJS)
-	$(LD) $(LDFLAGS) $< -o $@ $(LDLIBS)
+	$(LD) $(LDFLAGS) $(OBJS) -o $@ $(LDLIBS)
 
 $(TARGET) : loader.so
 	$(OBJCOPY) -j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rel \
@@ -67,9 +67,11 @@ runenv : $(RUNENV)
 
 .PHONY : boot
 boot : $(RUNENV)
+	sudo mount -t vfat -o loop,offset=1048576 disk.img mnt/
+	sudo cp ../kernel/kernel.elf mnt/
+	sudo umount mnt/
 	sudo qemu-system-x86_64 \
 		-m 1G \
-		-boot menu=on \
 		-drive if=pflash,format=raw,readonly,file=$(OVMFDIR)/OVMF_CODE.fd \
 		-drive if=pflash,format=raw,file=$(OVMFDIR)/OVMF_VARS.fd \
 		-drive if=ide,index=0,media=disk,format=raw,file=$(DISKIMG) \
