@@ -3,10 +3,14 @@
 
 #include <stdint.h>
 
-extern uint64_t _binary_hankaku16_bin_size;
-extern uint64_t _binary_hankaku16_bin_start;
-extern uint64_t _binary_hankaku16_bin_end;
+#define FONT_WIDTH 8
+#define FONT_HEIGHT 16
+#define FONT_NUM 256
 
-uint64_t get_font(char c);
+extern const uint8_t _binary_hankaku16_bin_start[];
+extern const uint8_t _binary_hankaku16_bin_end[];
+extern const uint8_t _binary_hankaku16_bin_size[];
+
+const uint8_t *get_font(char c);
 
 #endif

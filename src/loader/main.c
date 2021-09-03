@@ -4,77 +4,68 @@
 
 #include "util.h"
 #include "frame_buffer.h"
+#include "fs.h"
+#include "load.h"
 
-static CHAR16 *pixel_format_to_name(EFI_GRAPHICS_PIXEL_FORMAT format) {
-  switch(format) {
-    case PixelRedGreenBlueReserved8BitPerColor: return L"PixelRedGreenBlueReserved8BitPerColor";
-    case PixelBlueGreenRedReserved8BitPerColor: return L"PixelBlueGreenRedReserved8BitPerColor";
-    case PixelBitMask: return L"PixelBitMask";
-    case PixelBltOnly: return L"PixelBltOnly";
-    case PixelFormatMax: return L"PixelFormatMax";
-    default: return L"Unknown format";
+EFI_SYSTEM_TABLE *sys_table;
+
+static EFI_STATUS elf_check(const CHAR8 *magic) {
+  const CHAR8 *elf_magic = (const CHAR8 *)"\x7f" "ELF";
+  if(strncmpa(magic, elf_magic, 4)) {
+    Print(L"[Fatal] This file is not ELF format file...\n");
+    while(1);
   }
+  Print(L"[Succeeded!] File format checked!\n");
+
+  return EFI_SUCCESS;
 }
 
 EFI_STATUS
 efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
   InitializeLib(ImageHandle, SystemTable);
+  sys_table = SystemTable;
   SystemTable->ConOut->ClearScreen(SystemTable->ConOut);
   Print(L"OS Loading...\n");
   
   // Get the address of the top of EFI_SIMPLE_FILE_SYSTEM_PROTOCOL.
-  EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *SFSP;
-  EFI_GUID sfsp_guid = EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
-  SystemTable->BootServices->LocateProtocol(&sfsp_guid, NULL, (void **)&SFSP);
+  InitializeFileSystem(SystemTable);
 
   // Open root directory.
   // If opening failed, root_dir is NULL.
-  EFI_FILE_PROTOCOL *root_dir;
-  SFSP->OpenVolume(SFSP, &root_dir);
-  if(root_dir == NULL) {
-    Print(L"Failed to open root directory...\n");
-    while(1);
-    return EFI_SUCCESS;
-  }
-  Print(L"Succeeded to open root directory!\n");
+  EFI_FILE_PROTOCOL *root_dir = (EFI_FILE_PROTOCOL *)NULL;
+  OpenRootDir(&root_dir);
 
   // Search kernel.elf in root directory.
-  EFI_FILE_PROTOCOL *kernel_elf;
-  EFI_STATUS stat = root_dir->Open(root_dir, &kernel_elf, L"\\kernel.elf", EFI_FILE_MODE_READ, 0);
-  // If kernel.elf is found and successfully opened, EFI_FILE_PROTOCOL.Open() will return EFI_SUCCESS.
-  // So, if stat is not EFI_SUCCESS, it will display a status code, indicating that the file cannot be found or opened.
-  if(stat != EFI_SUCCESS) {
-    Print(L"Failed to open or search kernel.elf...\n");
-    Print(L"Status: %s\n", statcode_to_name(stat));
-    while(1);
-    return EFI_SUCCESS;
-  }
-  Print(L"Succeeded to find and open kernel.elf!\n");
+  EFI_FILE_PROTOCOL *kernel_elf = (EFI_FILE_PROTOCOL *)NULL;
+  OpenFileReadOnly(root_dir, &kernel_elf, L"\\kernel.elf");
 
-  // Allocate a buffer to store the contents of kernel.elf.
+  // Allocate a buffer to store the contents of kernel.elf temporarily.
   // Before allocating, get the size of kernel file.
   UINTN kernel_elf_info_size = 2 * sizeof(EFI_FILE_INFO);
-  CHAR8 kernel_elf_info_buffer[kernel_elf_info_size];
+  CHAR8 kernel_elf_info_buf[kernel_elf_info_size];
   EFI_GUID lfp_guid = EFI_FILE_INFO_ID;
-  stat = kernel_elf->GetInfo(kernel_elf, &lfp_guid, &kernel_elf_info_size, (void *)kernel_elf_info_buffer);
+  EFI_STATUS stat = kernel_elf->GetInfo(kernel_elf, &lfp_guid, &kernel_elf_info_size, (void *)kernel_elf_info_buf);
   if(stat != EFI_SUCCESS) {
     Print(L"Failed to get the infomation of kernel.elf...\n");
     Print(L"Status: %s\n", statcode_to_name(stat));
     while(1);
     return EFI_SUCCESS;
   }
-  EFI_FILE_INFO *kernel_elf_info = (EFI_FILE_INFO *)kernel_elf_info_buffer;
+  EFI_FILE_INFO *kernel_elf_info = (EFI_FILE_INFO *)kernel_elf_info_buf;
   // Execute to allocate with getting file size.
-  EFI_PHYSICAL_ADDRESS file_content_buf = (EFI_PHYSICAL_ADDRESS)0x100000;
-  stat = gBS->AllocatePages(AllocateAddress, EfiLoaderData, (kernel_elf_info->FileSize + 0xfff) / 0x1000, &file_content_buf);
+  UINTN kernel_elf_temp_buf_size = kernel_elf_info->FileSize;
+  CHAR8 kernel_elf_temp_buf[kernel_elf_temp_buf_size];
+  stat = gBS->AllocatePool(EfiLoaderData, kernel_elf_temp_buf_size, (void **)&kernel_elf_temp_buf);
   if(stat != EFI_SUCCESS) {
-    Print(L"Failed to allocated memories for the kernel file content...\n");
+    Print(L"Failed to allocated memories for the kernel file content temprarily...\n");
     Print(L"Status: %s\n", statcode_to_name(stat));
+    while(1);
+    return EFI_SUCCESS;
   }
+  Print(L"Succeeded to allocated memories for the kernel file content temporarily!\n");
 
-  // Store the contents of kernel.elf in the allocated buffer.
-  UINTN file_content_buf_size = (UINTN)kernel_elf_info->FileSize;
-  stat = kernel_elf->Read(kernel_elf, &file_content_buf_size, (void *)file_content_buf);
+  // Store the contents of kernel.elf in the allocated temporary buffer.
+  stat = kernel_elf->Read(kernel_elf, &kernel_elf_temp_buf_size, (void *)kernel_elf_temp_buf);
   if(stat != EFI_SUCCESS) {
     Print(L"Failed to read the content of kernel.elf...\n");
     Print(L"Status: %s\n", statcode_to_name(stat));
@@ -85,17 +76,11 @@ efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
 
   // Check the format of kernel.elf
   // If kernel.elf is not ELF format file, display an error message and stop this program.
-  Elf64_Ehdr *elf_header = (Elf64_Ehdr *)file_content_buf;
-  const CHAR8 *elf_magic = (const CHAR8 *)"\x7f" "ELF";
-  if(strncmpa(elf_header->e_ident, elf_magic, 4)) {
-    Print(L"Fatal: kernel.elf is not ELF format file.\n");
-    while(1);
-    return EFI_SUCCESS;
-  }
-  Print(L"Succeeded to check file format!\n");
-  Print(L"File Size: %x\n", kernel_elf_info->FileSize);
-  Print(L"Machine: %s\n", elf_machine_type_to_code(elf_header->e_machine));
-  Print(L"Type: %s\n", elf_file_type_to_code(elf_header->e_type));
+  Elf64_Ehdr *elf_header = (Elf64_Ehdr *)kernel_elf_temp_buf;
+  elf_check(elf_header->e_ident);
+
+  Elf64_Phdr *elf_phdr = (Elf64_Phdr *)(kernel_elf_temp_buf + elf_header->e_phoff);
+  load_program(elf_phdr, elf_header->e_phnum, kernel_elf_temp_buf);
 
   kernel_elf->Close(kernel_elf);
   root_dir->Close(root_dir);
@@ -135,23 +120,53 @@ efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
   frame_buffer.pixels_per_scanline = GOP->Mode->Info->PixelsPerScanLine;
   frame_buffer.frame_buffer_base = GOP->Mode->FrameBufferBase;
   frame_buffer.frame_buffer_size = GOP->Mode->FrameBufferSize;
-  Print(L"HorizontalResolution: %d\n", frame_buffer.horizontal_resolution);
-  Print(L"VerticalResolution: %d\n", frame_buffer.vertical_resolution);
-  Print(L"Pixel Fromat: %s\n", pixel_format_to_name(frame_buffer.pixel_format));
-  Print(L"Frame Buffer Scanline: %d\n", frame_buffer.pixels_per_scanline);
-  Print(L"Frame Buffer Base: %ld\n", frame_buffer.frame_buffer_base);
 
+  // Get the current memory map.
+  // The memory map which is got by gBS->GetMemoryMap needs for exitting boot services.
+  CHAR8 memmap_buf[4096 * 4];
+  UINTN memmap_buf_size = sizeof(memmap_buf);
+  UINTN descriptor_size = 0;
+  UINTN map_key = 0;
+  UINT32 descriptor_version = 0;
+  stat = gBS->GetMemoryMap(&memmap_buf_size, (EFI_MEMORY_DESCRIPTOR *)memmap_buf, &map_key, &descriptor_size, &descriptor_version);
+  if(stat != EFI_SUCCESS) {
+    Print(L"Failed to get the current memmory map...\n");
+    Print(L"Status: %s\n", statcode_to_name(stat));
+    while(1);
+    return EFI_SUCCESS;
+  }
+  Print(L"Succeeded to get the current memory map!\n");
+
+  // Exit the boot services.
+  stat = gBS->ExitBootServices(ImageHandle, map_key);
+  if(stat != EFI_SUCCESS) {
+    memmap_buf_size = sizeof(memmap_buf);
+    stat = gBS->GetMemoryMap(&memmap_buf_size, (EFI_MEMORY_DESCRIPTOR *)memmap_buf, &map_key, &descriptor_size, &descriptor_version);
+    if(stat != EFI_SUCCESS) {
+      Print(L"Failed to get the current memmory map...\n");
+      Print(L"Status: %s\n", statcode_to_name(stat));
+      while(1);
+      return EFI_SUCCESS;
+    }
+    stat = gBS->ExitBootServices(ImageHandle, map_key);
+    if(stat != EFI_SUCCESS) {
+      Print(L"Failed to exit the boot services...\n");
+      Print(L"Status: %s\n", statcode_to_name(stat));
+      while(1);
+      return EFI_SUCCESS;
+    }
+  }
 
   // Define the variable type for calling kernel's main function.
   // After that, get the address of kernel's main function and call kernel's main function.
   typedef INT32 kernel_entry_point_type_t(frame_buffer_info_t);
   kernel_entry_point_type_t *kernel_main = (kernel_entry_point_type_t *)elf_header->e_entry;
-  Print(L"Entry Point: %x\n", elf_header->e_entry);
-  INT32 ret = kernel_main(frame_buffer);
+  // Print(L"Entry Point: %x\n", elf_header->e_entry);
+  kernel_main(frame_buffer);
 
-  Print(L"Return value: %x\n", ret);
+  // Print(L"Return value: 0x%x\n", ret);
 
-  Print(L"Success!\n");
+  // Print(L"Success!\n");
   while(1);
   return EFI_SUCCESS;
 }

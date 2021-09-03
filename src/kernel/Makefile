@@ -8,7 +8,7 @@ OBJCOPY	= objcopy
 SRC 		= ..
 TOOLS 	= $(SRC)/tools
 
-OBJS		= main.o hankaku16.o font.o graphics.o util.o
+OBJS		= main.o hankaku16.o font.o graphics.o util.o print.o
 
 CFLAGS	= -nostdinc -ffreestanding -m64 -mno-red-zone -fno-exceptions
 INC			= -I$(TOOLS)/newlib-cygwin/newlib/libc/include -I/usr/lib/gcc/x86_64-linux-gnu/9/include
@@ -25,7 +25,7 @@ $(TARGET) : $(OBJS)
 	$(NASM) -f elf64 -o $@ $<
 
 %.o : %.bin
-	$(OBJCOPY) -I binary -O elf64-x86-64 -B i386 $< $@
+	$(OBJCOPY) -I binary -O elf64-x86-64 -B i386:x86-64 $< $@
 
 %.bin :
 	cp $(SRC)/resources/fonts/hankaku16.bin hankaku16.bin

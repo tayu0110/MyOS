@@ -1,5 +1,10 @@
+#include <string.h>
+
 #include "graphics.h"
 #include "util.h"
+
+uint32_t horizontal_resolution;
+uint32_t vertical_resolution;
 
 static frame_buffer_info_t global_frame_buffer;
 static uint32_t size_of_pixel_elements;
@@ -8,14 +13,13 @@ static uint32_t red_offset;
 static uint32_t green_offset;
 static uint32_t blue_offset;
 
+// Initialize the information about graphics.
+// frame_buffer : frame buffer which is taken from UEFI.
 void init_graphics(frame_buffer_info_t frame_buffer) {
-  global_frame_buffer.horizontal_resolution = frame_buffer.horizontal_resolution;
-  global_frame_buffer.vertical_resolution = frame_buffer.vertical_resolution;
-  global_frame_buffer.pixel_format = frame_buffer.pixel_format;
-  global_frame_buffer.pixels_per_scanline = frame_buffer.pixels_per_scanline;
-  global_frame_buffer.frame_buffer_base = frame_buffer.frame_buffer_base;
-  global_frame_buffer.frame_buffer_size = frame_buffer.frame_buffer_size;
-
+  memcpy(&global_frame_buffer, &frame_buffer, sizeof(frame_buffer));
+  horizontal_resolution = frame_buffer.horizontal_resolution;
+  vertical_resolution = frame_buffer.vertical_resolution;
+  
   switch(global_frame_buffer.pixel_format) {
     case PixelBlueGreenRedReserved8BitPerColor:
       size_of_pixel_elements = 4;
@@ -49,7 +53,7 @@ void clear_srceen() {
   uint64_t scanline = global_frame_buffer.pixels_per_scanline;
   for(uint64_t i = 0; i < vr; i++) {
     for(uint64_t j = 0; j < hr; j++) {
-      *((uint64_t *)(base + i * scanline * size_of_pixel_elements + j * size_of_pixel_elements)) = (uint32_t)0;
+      *((uint32_t *)(base + i * scanline * size_of_pixel_elements + j * size_of_pixel_elements)) = (uint32_t)0;
     }
   }
 }
@@ -64,7 +68,7 @@ void draw_dot(uint16_t x, uint16_t y, uint32_t color) {
 
   uint64_t base = global_frame_buffer.frame_buffer_base;
   uint64_t scanline = global_frame_buffer.pixels_per_scanline;
-  *((uint64_t *)(base + scanline * x * size_of_pixel_elements + y * size_of_pixel_elements)) = color;
+  *((uint32_t *)(base + scanline * y * size_of_pixel_elements + x * size_of_pixel_elements)) = color;
 }
 
 // Make the value of color for drawing dots.

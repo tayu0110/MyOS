@@ -60,3 +60,14 @@ CHAR16 *elf_machine_type_to_code(Elf64_Half e_machine) {
     default: return L"FATAL";
   }
 }
+
+CHAR16 *pixel_format_to_name(EFI_GRAPHICS_PIXEL_FORMAT format) {
+  switch(format) {
+    case PixelRedGreenBlueReserved8BitPerColor: return L"PixelRedGreenBlueReserved8BitPerColor";
+    case PixelBlueGreenRedReserved8BitPerColor: return L"PixelBlueGreenRedReserved8BitPerColor";
+    case PixelBitMask: return L"PixelBitMask";
+    case PixelBltOnly: return L"PixelBltOnly";
+    case PixelFormatMax: return L"PixelFormatMax";
+    default: return L"Unknown format";
+  }
+}
