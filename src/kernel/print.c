@@ -1,4 +1,6 @@
 #include <stdint.h>
+#include <stdarg.h>
+#include <stdio.h>
 
 #include "print.h"
 #include "graphics.h"
@@ -57,6 +59,11 @@ void set_cursor(uint16_t x, uint16_t y) {
 // Display the character which is 'c' on ascii code.
 // c : ascii code (8-bit unsigned integer)
 int put_char(char c) {
+  if(c == '\n') {
+    newline_cursor();
+    return 0;
+  }
+
   const uint8_t *font = get_font(c);
   uint16_t row = cursor.row;
   uint16_t column = cursor.column;
@@ -90,4 +97,18 @@ int put_string(const char *s) {
   }
 
   return 0;
+}
+
+// Currently, this provides the same functionality as printf().
+int printk(const char* fmt, ...) {
+  char buf[4096];
+  va_list ap;
+
+  va_start(ap, fmt);
+  int res = vsprintf(buf, fmt, ap);
+  va_end(ap);
+
+  put_string(buf);
+
+  return res;
 }

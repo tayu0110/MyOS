@@ -8,7 +8,7 @@ OBJCOPY	= objcopy
 SRC 		= ..
 TOOLS 	= $(SRC)/tools
 
-OBJS		= main.o hankaku16.o font.o graphics.o util.o print.o
+OBJS		= main.o hankaku16.o font.o graphics.o util.o print.o pci.o portio.o sup_lib.o
 
 CFLAGS	= -nostdinc -ffreestanding -m64 -mno-red-zone -fno-exceptions
 INC			= -I$(TOOLS)/newlib-cygwin/newlib/libc/include -I/usr/lib/gcc/x86_64-linux-gnu/9/include

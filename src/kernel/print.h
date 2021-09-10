@@ -8,5 +8,6 @@
 void set_cursor(uint16_t x, uint16_t y);
 int put_char(char c);
 int put_string(const char *s);
+int printk(const char *fmt, ...);
 
 #endif
