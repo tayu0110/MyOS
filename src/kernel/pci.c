@@ -1,6 +1,8 @@
 #include "pci.h"
 #include "portio.h"
 
+#include <stddef.h>
+
 uint32_t pci_device_num;
 pci_device_info_t pci_devices[PCI_BUS_NUM_MAX * PCI_DEVICE_NUM_MAX * PCI_FUNCTION_NUM_MAX];
 
@@ -134,6 +136,26 @@ uint8_t pci_get_header_type(uint8_t bus, uint8_t slot, uint8_t func) {
   return (uint8_t)pci_read_config_word(bus, slot, func, 0x0E);
 }
 
+uint32_t pci_get_BAR0(uint8_t bus, uint8_t slot, uint8_t func) {
+  return pci_read_config_dword(bus, slot, func, 0x10);
+}
+
+uint32_t pci_get_BAR1(uint8_t bus, uint8_t slot, uint8_t func) {
+  return pci_read_config_dword(bus, slot, func, 0x14);
+}
+
+uint16_t pci_get_system_vendor_id(uint8_t bus, uint8_t slot, uint8_t func) {
+  return pci_read_config_word(bus, slot, func, 0x2C);
+}
+
+uint16_t pci_get_subsystem_id(uint8_t bus, uint8_t slot, uint8_t func) {
+  return pci_read_config_word(bus, slot, func, 0x2E);
+}
+
+uint8_t pci_get_capabilities_pointer(uint8_t bus, uint8_t slot, uint8_t func) {
+  return (uint8_t)pci_read_config_word(bus, slot, func, 0x34);
+}
+
 // Converts a Class Code from a number to a string.
 char* parse_class_code(uint8_t class_code) {
   switch(class_code) {
@@ -161,4 +183,60 @@ char* parse_class_code(uint8_t class_code) {
     case 0xFF: return "Unassigned Class(Vendor specific";
     default: return "Reserved";
   }
+}
+
+msi_conf_cap pci_get_msi_conf_cap(uint8_t bus, uint8_t slot, uint8_t func) {
+  uint8_t cap_ptr = pci_get_capabilities_pointer(bus, slot, func);
+  msi_conf_cap cap;
+  cap.cap_id = 0;
+  if(cap_ptr == NULL) {
+    return cap;
+  }
+
+  uint8_t cap_id = (uint8_t)pci_read_config_word(bus, slot, func, cap_ptr);
+  uint8_t nxt_ptr = (uint8_t)((pci_read_config_word(bus, slot, func, cap_ptr) >> 8) & 0xFF);
+  while(cap_id != 0x05 && nxt_ptr != NULL) {
+    cap_ptr = nxt_ptr;
+    cap_id = (uint8_t)pci_read_config_word(bus, slot, func, cap_ptr);
+    nxt_ptr = (uint8_t)((pci_read_config_word(bus, slot, func, cap_ptr) >> 8) & 0xFF);
+  }
+
+  if(cap_id == 0x05) {
+    cap.cap_id = cap_id;
+    cap.nxt_ptr = (uint8_t)((pci_read_config_word(bus, slot, func, cap_ptr) >> 8) & 0xFF);
+    cap.msi_msg_ctrl = pci_read_config_word(bus, slot, func, cap_ptr + 2);
+    cap.msg_address = pci_read_config_dword(bus, slot, func, cap_ptr + 4);
+    cap.msg_upper_address = pci_read_config_dword(bus, slot, func, cap_ptr + 8);
+    cap.msg_data = pci_read_config_word(bus, slot, func, cap_ptr + 12);
+    cap.RsvdP = pci_read_config_word(bus, slot, func, cap_ptr + 14);
+  }
+  return cap;
+}
+
+msix_conf_cap pci_get_msix_conf_cap(uint8_t bus, uint8_t slot, uint8_t func) {
+  uint8_t cap_ptr = pci_get_capabilities_pointer(bus, slot, func);
+  msix_conf_cap cap;
+  cap.cap_id = 0;
+  if(cap_ptr == NULL) {
+    return cap;
+  }
+
+  uint8_t cap_id = (uint8_t)pci_read_config_word(bus, slot, func, cap_ptr);
+  uint8_t nxt_ptr = (uint8_t)((pci_read_config_word(bus, slot, func, cap_ptr) >> 8) & 0xFF);
+  while(cap_id != 0x11 && nxt_ptr != NULL) {
+    cap_ptr = nxt_ptr;
+    cap_id = (uint8_t)pci_read_config_word(bus, slot, func, cap_ptr);
+    nxt_ptr = (uint8_t)((pci_read_config_word(bus, slot, func, cap_ptr) >> 8) & 0xFF);
+  }
+
+  if(cap_id == 0x11) {
+    cap.cap_id = cap_id;
+    cap.nxt_ptr = (uint8_t)((pci_read_config_word(bus, slot, func, cap_ptr) >> 8) & 0xFF);
+    cap.msix_msg_ctrl = pci_read_config_word(bus, slot, func, cap_ptr + 2);
+    cap.table_BIR = (uint8_t)pci_read_config_word(bus, slot, func, cap_ptr + 4);
+    cap.table_offset = pci_read_config_dword(bus, slot, func, cap_ptr + 4) >> 3;
+    cap.PBA_BIR = (uint8_t)pci_read_config_word(bus, slot, func, cap_ptr + 8);
+    cap.PBA_offset = pci_read_config_dword(bus, slot, func, cap_ptr + 8) >> 3;
+  }
+  return cap;
 }

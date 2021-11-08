@@ -43,6 +43,8 @@ void init_graphics(frame_buffer_info_t frame_buffer) {
       // PixelBlueGreenRedReserved8BitColor, I may implement it in the future.
       break;
   }
+
+  clear_srceen();
 }
 
 // Fill the screen with black.

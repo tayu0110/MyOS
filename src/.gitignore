@@ -9,5 +9,6 @@
 tools/
 .vscode/
 mnt/
+kernel/obj/
 resources/fonts/node_modules/
 resources/shinonome-0.9.11-src/

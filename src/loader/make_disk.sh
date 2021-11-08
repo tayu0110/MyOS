@@ -1,11 +1,12 @@
 #!/bin/bash
 # disk_name=disk.img
 disk_name=$1
+password=$2
 expect -c "
   set timeout -1
   spawn sudo gdisk $disk_name
   expect \"sudo\"
-  send \"tayu01101440\n\"
+  send \"$password\n\"
   expect \"Command\"
   send \"n\n\"
   expect \"Partition\"
