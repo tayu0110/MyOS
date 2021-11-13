@@ -10,12 +10,12 @@ TOOLS 	= $(SRC)/tools
 OBJDIR	= obj
 
 OBJS		= $(OBJDIR)/main.o $(OBJDIR)/hankaku16.o $(OBJDIR)/font.o $(OBJDIR)/graphics.o $(OBJDIR)/util.o $(OBJDIR)/print.o \
-					$(OBJDIR)/pci.o $(OBJDIR)/portio.o $(OBJDIR)/sup_lib.o $(OBJDIR)/xhci.o $(OBJDIR)/context.o
+					$(OBJDIR)/pci.o $(OBJDIR)/portio.o $(OBJDIR)/sup_lib.o $(OBJDIR)/xhci.o
 
 CFLAGS	= -nostdinc -ffreestanding -m64 -mno-red-zone -fno-exceptions
-INC			= -I$(TOOLS)/newlib-cygwin/newlib/libc/include -I/usr/lib/gcc/x86_64-linux-gnu/9/include
+INC			= -I$(TOOLS)/newlib/include -I/usr/lib/gcc/x86_64-linux-gnu/9/include
 LDFLAGS = -z norelro --entry main -static -T./ld.scr
-LDLIBS	= -L$(TOOLS)/build-newlib -lc
+LDLIBS	= -L$(TOOLS)/newlib/lib -lc
 
 $(TARGET) : $(OBJS)
 	$(LD) $(LDFLAGS) $(OBJS) -o $@ $(LDLIBS)

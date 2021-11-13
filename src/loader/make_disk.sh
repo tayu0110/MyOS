@@ -1,7 +1,8 @@
 #!/bin/bash
 # disk_name=disk.img
+read input
 disk_name=$1
-password=$2
+password=$input
 expect -c "
   set timeout -1
   spawn sudo gdisk $disk_name

@@ -4,11 +4,12 @@
 *.img
 *.elf
 *.txt
-*.scr
 *.bin
-tools/
+tools/newlib*
+tools/gnu-efi
+tools/edk2
 .vscode/
 mnt/
 kernel/obj/
 resources/fonts/node_modules/
-resources/shinonome-0.9.11-src/
+resources/fonts/shinonome*
